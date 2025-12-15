@@ -104,6 +104,45 @@ int getch(void) {
 
 ///////////////////////////PROGRAMME DE JEU////////////////////////////
 
+typedef struct {
+    int niveau;
+    int vie;
+    int nb_coups;
+    int objets_A;
+    int objets_B;
+    int objets_C;
+    int objets_P;
+    int objets_F;
+    char contrat;
+} Avancement;
+
+void sauvegarderAvancement(const Avancement *avancement, const char *nomFichier) {
+    FILE *fichier = fopen(nomFichier, "wb"); // Ouvre en écriture binaire
+    if (fichier == NULL) {
+        perror("Erreur lors de l'ouverture du fichier pour la sauvegarde");
+        return;
+    }
+    fwrite(avancement, sizeof(Avancement), 1, fichier); // Écrit la structure dans le fichier
+    fclose(fichier);
+}
+
+
+void chargerAvancement(Avancement *avancement, const char *nomFichier) {
+    FILE *fichier = fopen(nomFichier, "rb"); // Ouvre en lecture binaire
+    if (fichier == NULL) {
+        perror("Erreur lors de l'ouverture du fichier pour le chargement");
+        return;
+    }
+    fread(avancement, sizeof(Avancement), 1, fichier); // Lit la structure depuis le fichier
+    fclose(fichier);
+}
+
+void reprendrePartie() {
+    Avancement avancement;
+    chargerAvancement(&avancement, "sauvegarde.dat");
+    // Utilise les données chargées pour initialiser ton jeu
+    jeu(avancement.niveau, avancement.vie, avancement.nb_coups, avancement.objets_A, avancement.objets_B, avancement.objets_C, avancement.objets_P, avancement.objets_F);
+}
 
 char fonctionNomJoueur(){
     char saisieJoueur[100];
