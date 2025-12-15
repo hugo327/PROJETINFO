@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <unistd.h>  
+#include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
 #define HAUTEUR 25
@@ -37,7 +37,7 @@ void text_color(const char* color) {
     printf("%s", color);
     fflush(stdout);
 }
-// cache et affichage du curseur 
+// cache et affichage du curseur
 void hide_cursor(){
     printf("\033[?25l");
     fflush(stdout);
@@ -48,9 +48,9 @@ void show_cursor(){
 }
 //effacage du terminal et remise du curseur
 void clrscr() {
-    printf("\033[2J");  
-    printf("\033[H");    
-    fflush(stdout);      
+    printf("\033[2J");
+    printf("\033[H");
+    fflush(stdout);
 }
 
 int kbhit(void) {
@@ -111,7 +111,7 @@ char fonctionNomJoueur(){
     return saisieJoueur[100];
 }
 
-void ReglesJeu(){ 
+void ReglesJeu(){
 }
 
 void coups(int nb_coups){
@@ -121,7 +121,7 @@ void coups(int nb_coups){
 
 void fonctionBonusMalus(){
     char bonus = 'B', malus = 'M';
-    
+
         int xB = rand()%43+2;
         int yB = rand()%23+2;
         int xM = rand()%43+2;
@@ -135,7 +135,7 @@ void fonctionBonusMalus(){
 }
 
 void detection_lettre(){
-	
+
 
 }
 
@@ -179,12 +179,7 @@ void affichageItems(int A, int B, int F, int C, int P){
     gotoxy(65, 20);
     printf("A : %d\n", A);
     gotoxy(65, 21);
-
-    
-
 }
-
-
 
 
 char lettreAleatoire(){
@@ -219,7 +214,7 @@ int DeplacerJoueur(char touche, int *x,int *y){
     if (touche == 'd' && *x < LARGEUR){
         (*x)++;
     }
-  
+
 }
 
 
@@ -243,7 +238,7 @@ void afficherCadreBonbon(){
             break;
         }
         printf("%c", lettre_recup);
-    }  
+    }
     j++;
     printf("\n");
     }while(j <= HAUTEUR+1);
@@ -251,7 +246,7 @@ void afficherCadreBonbon(){
 }
 
 void afficherObjet(char c, int x, int y, const char* couleur) {
-    gotoxy(x+1, y+1);
+    gotoxy(x, y);
     printf("%s%c%s", couleur, c, RESET);
     fflush(stdout);
 }
@@ -266,7 +261,7 @@ int menu(){
     printf("Que voulez-vous faire : ");
     scanf("%d", &reponse);
     switch (reponse){
-    case 1: printf("utilisez les touches z q s d pour vous orientez, compris ?:(O/N) :"); break;
+    case 1: printf("utilisez les touches z q s d pour vous orientez, compris ?:(O/N)(n : quitter) :"); break;
     case 2: return 1; break;
     case 3: return 2; break;
     case 4: return 3; break;
@@ -277,9 +272,6 @@ int menu(){
 
 
 void jeu(){
-   
-       
-
     int compteurX = 0, compteurY = 65;
     int B=0, F=0, C=0, P=0, A=0;
     int niveau = 0;
@@ -289,6 +281,7 @@ void jeu(){
     int xJoueur = LARGEUR / 2;
     int yJoueur = HAUTEUR / 2;
     int xObjet, yObjet;
+    char lettre = grille[yJoueur][xJoueur];
 
     clrscr();
     afficherCadre();
@@ -304,33 +297,33 @@ void jeu(){
     temps_debut = clock();
     clock_t temps_restant;
     affichageItems(A, B, C, P, F);
-
-    
-    	
-    
-    
-    
-    
     do{
-         //variables pour la gestion du temps
+    //variables pour la gestion du temps
     clock_t temps_restant;
     temps_ecoule = (double)(clock() - temps_debut) / CLOCKS_PER_SEC;
-    temps_restant = 30.0 - temps_ecoule;
+    temps_restant = 60.0 - temps_ecoule;
     gotoxy(65, 13);
     text_color(VERT);
     printf("Il vous reste : %1ld seconde(s)", temps_restant);
     text_color(RESET);
+    usleep(30000);
+    afficherObjet(lettre, xJoueur, yJoueur, VIOLET);
     if (temps_restant == 0){
     break;
     }
         if(kbhit() != 0){
             touche = getch();
+            if (touche == 'z' || touche == 'q' || touche == 's' || touche == 'd'){
+                DeplacerJoueur(touche, &xJoueur, &yJoueur);
+                afficherObjet('_', xJoueur, yJoueur, VIOLET);
+                lettre = grille[yJoueur][xJoueur];
+            }
 
         }
 
+    afficherObjet('_', xJoueur, yJoueur, VIOLET);
 
-        
-    }while(touche != 'q');
+    }while(touche != 'n');
 }
 
 void main(){
