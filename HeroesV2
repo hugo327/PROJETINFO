@@ -446,7 +446,7 @@ do{
 gotoxy(2,j);
 for (i=0; i<LARGEUR; i++){
 lettre_recup = lettreAleatoire();
-stockageTableau(i, j, lettre_recup);
+stockageTableau(i+2, j, lettre_recup);
 switch (lettre_recup)
 {
 case 'B':text_color(BRIHT_YELLOW);break;
