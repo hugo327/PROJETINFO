@@ -1,0 +1,780 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <string.h>
+
+#define HAUTEUR 25
+#define LARGEUR 45
+#define BRIGHT_PURPLE "\033[1;35m"
+#define BRIHT_YELLOW "\033[93m"
+#define BRIGHT_RED "\033[91m"
+#define ORANGE "\033[38;5;208m"
+#define ROSE "\033[38;5;205m"
+#define YELLOW "\033[0;33m"
+#define BLEU_FONCE "\033[34m"
+#define LIGHTGRAY "\033[0;37m"
+#define CYAN "\033[0;36m"
+#define VERT "\033[0;32m"
+#define VIOLET "\033[95m"
+#define BLANC "\033[37m"
+#define NOIR "\033[30m"
+#define APRICOT "\033[38;2;251;206;177m"
+#define ROUGE "\033[91m"
+#define RESET "\033[0m"
+
+char lettreAleatoire(void);
+
+char grille[44][24];
+
+void gotoxy(int x, int y) {
+printf("\033[%d;%dH", y, x);
+fflush(stdout);
+}
+
+void text_color(const char* color) {
+printf("%s", color);
+fflush(stdout);
+}
+
+void hide_cursor(){
+printf("\033[?25l");
+fflush(stdout);
+}
+
+void show_cursor(){
+printf("\033[?25h");
+fflush(stdout);
+}
+
+void clrscr() {
+printf("\033[2J");
+printf("\033[H");
+fflush(stdout);
+}
+
+int kbhit(void) {
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if(ch != EOF) {
+        ungetc(ch, stdin);
+        return 1;
+    }
+
+    return 0;
+}
+
+int getch(void) {
+struct termios oldt, newt;
+int ch;
+
+tcgetattr(STDIN_FILENO, &oldt);
+
+newt = oldt;
+newt.c_lflag &= ~(ICANON | ECHO);
+tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+ch = getchar();
+
+tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+return ch;
+}
+
+///////////////////////////PROGRAMME DE JEU////////////////////////////
+typedef struct{
+char Joueur[50];
+int niveau;
+int vie;
+int nb_coups;
+int A;
+int B;
+int C;
+int P;
+int F;
+}Avancement;
+
+int Sauvegarde_Joueur(const Avancement *av) {
+FILE *pf = fopen("/home/blitz/Documents/C/PROJET/joueur.txt", "r");
+FILE *temp = fopen("/home/blitz/Documents/C/PROJET/temp.txt", "w");
+if (temp == NULL) {
+perror("Erreur lors de la création du fichier temporaire");
+return 1;
+}
+int trouve = 0;
+Avancement lectureJoueur;
+if (pf != NULL) {
+while (fscanf(pf, "%s %d %d %d %d %d %d %d %d",
+lectureJoueur.Joueur, &lectureJoueur.niveau, 
+&lectureJoueur.vie, &lectureJoueur.nb_coups,
+&lectureJoueur.A, &lectureJoueur.B, 
+&lectureJoueur.C, &lectureJoueur.P, 
+&lectureJoueur.F) == 9) {
+if (strcmp(lectureJoueur.Joueur, av->Joueur) == 0) {
+fprintf(temp, "%s %d %d %d %d %d %d %d %d\n",
+av->Joueur, av->niveau, av->vie, av->nb_coups,
+av->A, av->B, av->C, av->P, av->F);
+trouve = 1;
+} else {
+fprintf(temp, "%s %d %d %d %d %d %d %d %d\n",
+lectureJoueur.Joueur, lectureJoueur.niveau, 
+lectureJoueur.vie, lectureJoueur.nb_coups,
+lectureJoueur.A, lectureJoueur.B, 
+lectureJoueur.C, lectureJoueur.P, 
+lectureJoueur.F);
+}
+}
+fclose(pf);
+}
+if (!trouve) {
+fprintf(temp, "%s %d %d %d %d %d %d %d %d\n",
+av->Joueur, av->niveau, av->vie, av->nb_coups,
+av->A, av->B, av->C, av->P, av->F);
+}
+fclose(temp);
+remove("/home/blitz/Documents/C/PROJET/joueur.txt");
+rename("/home/blitz/Documents/C/PROJET/temp.txt", 
+"/home/blitz/Documents/C/PROJET/joueur.txt");
+return 0;
+}
+
+int Charger_Joueur(Avancement *av, const char *pseudo) {
+FILE *pf = fopen("/home/blitz/Documents/C/PROJET/joueur.txt", "r");
+if (pf == NULL) {
+return 0;
+}
+Avancement temp;
+while (fscanf(pf, "%s %d %d %d %d %d %d %d %d",
+temp.Joueur, &temp.niveau, &temp.vie, &temp.nb_coups,
+&temp.A, &temp.B, &temp.C, &temp.P, &temp.F) == 9) {
+if (strcmp(temp.Joueur, pseudo) == 0) {
+*av = temp;
+fclose(pf);
+text_color(VERT);
+printf("\nSauvegarde trouvée pour %s !\n", pseudo);
+printf("Niveau: %d | Vie: %d | Coups: %d\n", 
+av->niveau, av->vie, av->nb_coups);
+text_color(RESET);
+return 1;
+}
+}
+fclose(pf);
+return 0;
+}
+
+void Afficher_Tous_Joueurs() {
+FILE *pf = fopen("/home/blitz/Documents/C/PROJET/joueur.txt", "r");
+if (pf == NULL) {
+text_color(ROUGE);
+printf("Aucune sauvegarde trouvée.\n");
+text_color(RESET);
+return;
+}
+Avancement joueur;
+int numero = 1;
+text_color(VERT);
+printf("\n=== LISTE DES JOUEURS SAUVEGARDÉS ===\n");
+text_color(RESET);
+while (fscanf(pf, "%s %d %d %d %d %d %d %d %d",
+joueur.Joueur, &joueur.niveau, &joueur.vie, 
+&joueur.nb_coups, &joueur.A, &joueur.B, 
+&joueur.C, &joueur.P, &joueur.F) == 9) {
+printf("[%d] %s - Niveau: %d, Vie: %d, Coups: %d\n",
+numero++, joueur.Joueur, joueur.niveau, 
+joueur.vie, joueur.nb_coups);
+}
+fclose(pf);
+}
+
+void affichage_LOGO(){
+printf("██╗ ██╗███████╗██████╗ ██████╗ ███████╗███████╗\n");
+printf("██║ ██║██╔════╝██╔══██╗██╔═══██╗██╔════╝██╔════╝\n");
+printf("███████║█████╗ ██████╔╝██║ ██║█████╗ ███████╗\n");
+printf("██╔══██║██╔══╝ ██╔══██╗██║ ██║██╔══╝ ╚════██║\n");
+printf("██║ ██║███████╗██║ ██║╚██████╔╝███████╗███████║\n");
+printf("╚═╝ ╚═╝╚══════╝╚═╝ ╚═╝ ╚═════╝ ╚══════╝╚══════╝\n");
+}
+
+void FIN_PARTIE(){}
+
+int regles(){
+char reponse;
+clrscr();
+text_color(VERT);
+printf("=== RÈGLES DU JEU ===\n\n");
+printf("Utilisez les touches Z Q S D pour vous déplacer.\n");
+printf("Collectez les objets pour gagner des points.\n");
+printf("Vous avez 60 secondes par niveau.\n");
+printf("\nVotre objectif :\n");
+printf("- 12 Bananes (B)\n");
+printf("- 16 Fraises (F)\n");
+printf("- 4 Pommes (P)\n");
+printf("- 10 Clémentines (C)\n");
+printf("- 4 Abricots (A)\n");
+printf("\nAppuyez sur 'n' pour quitter.\n");
+printf("\nCompris ? (O/N) : ");
+text_color(RESET);
+scanf(" %c", &reponse);
+if (reponse == 'n' || reponse == 'N'){
+return 1;
+}
+return 0;
+}
+
+void coups(int nb_coups){
+gotoxy(65, 9);
+printf("Vous avez encore : %d coup(s)", nb_coups);
+}
+
+void fonctionBonusMalus(){
+char bonus = 'B', malus = 'M';
+int xB = rand()%43+2;
+int yB = rand()%23+2;
+int xM = rand()%43+2;
+int yM = rand()%23+2;
+gotoxy(xB, yB);
+text_color(CYAN);
+printf("%c", bonus);
+gotoxy(xM, yM);
+text_color(BLEU_FONCE);
+printf("%c", malus);
+}
+
+void detection_lettre(){}
+
+void stockageTableau(int x, int y, char lettreActuelle){
+grille[y][x] = lettreActuelle;
+}
+
+static int is_fruit(char c) {
+    return (c == 'B' || c == 'P' || c == 'C' || c == 'F' || c == 'A');
+}
+const char* couleur_fruit(char c) {
+    switch (c) {
+        case 'B': return BRIHT_YELLOW;
+        case 'P': return BRIGHT_RED;
+        case 'C': return ORANGE;
+        case 'F': return ROSE;
+        case 'A': return APRICOT;
+        default:  return RESET;
+    }
+}
+
+int detecter_ligne(int x, int y, int dx, int dy) {
+    char c = grille[y][x];
+    if (!is_fruit(c)) return 0;
+
+    int count = 1;
+    int nx = x + dx, ny = y + dy;
+
+    while (nx >= 1 && nx <= LARGEUR &&
+           ny >= 1 && ny <= HAUTEUR &&
+           grille[ny][nx] == c) {
+        count++;
+        nx += dx;
+        ny += dy;
+    }
+    return count;
+}
+
+int marquer_alignements() {
+    int trouve = 0;
+
+    for (int y = 1; y <= HAUTEUR; y++) {
+        for (int x = 1; x <= LARGEUR; x++) {
+
+            int h = detecter_ligne(x, y, 1, 0);
+            int v = detecter_ligne(x, y, 0, 1);
+
+            if (h >= 4) {
+                for (int i = 0; i < h; i++)
+                    grille[y][x+i] = '0';
+                trouve = 1;
+            }
+
+            if (v >= 4) {
+                for (int i = 0; i < v; i++)
+                    grille[y+i][x] = '0';
+                trouve = 1;
+            }
+        }
+    }
+    return trouve;
+}
+void appliquer_gravite() {
+    for (int x = 1; x <= LARGEUR; x++) {
+        for (int y = HAUTEUR; y >= 1; y--) {
+            if (grille[y][x] == '0') {
+                int k = y - 1;
+                while (k >= 1 && grille[k][x] == '0') k--;
+                if (k >= 1) {
+                    grille[y][x] = grille[k][x];
+                    grille[k][x] = '0';
+                }
+            }
+        }
+    }
+}
+void remplir_cases_vides() {
+    for (int y = 1; y <= HAUTEUR; y++) {
+        for (int x = 1; x <= LARGEUR; x++) {
+            if (grille[y][x] == '0') {
+                grille[y][x] = lettreAleatoire();
+            }
+        }
+    }
+}
+ void stabiliser_plateau() {
+    while (marquer_alignements()) {
+        appliquer_gravite();
+        remplir_cases_vides();
+    }
+}
+ 
+void decrementer_contrat(Avancement *av, char c) {
+    if (c == 'B' && av->B > 0) av->B--;
+    if (c == 'F' && av->F > 0) av->F--;
+    if (c == 'C' && av->C > 0) av->C--;
+    if (c == 'P' && av->P > 0) av->P--;
+    if (c == 'A' && av->A > 0) av->A--;
+}
+int contrat_rempli(Avancement *av) {
+    return av->A == 0 && av->B == 0 &&
+           av->C == 0 && av->P == 0 &&
+           av->F == 0;
+}
+
+
+
+void contrat(){
+gotoxy(65, 11);
+printf("Votre contrat : \n");
+gotoxy(65, 12);
+printf("12 Bananes, 16 Fraises,");
+gotoxy(65, 13);
+printf("4 Pommes, 10 Clémentines,");
+gotoxy(65, 14);
+printf("4 Abricots");
+}
+
+void afficherCadre() {
+gotoxy(0,0);
+text_color(LIGHTGRAY);
+for (int y = 0; y <= HAUTEUR+1; y++) {
+for (int x = 0; x <= LARGEUR+1; x++) {
+if (y == 0 || y == HAUTEUR+1) printf("#");
+else if (x == 0 || x == LARGEUR+1) printf("#");
+else printf(" ");
+}
+printf("\n");
+}
+}
+
+void affichageItems(int A, int B, int F, int C, int P){
+gotoxy(65, 16);
+text_color(VERT);
+printf("Il vous reste :\n");
+gotoxy(65, 17);
+printf("B : %d\n", B);
+gotoxy(65, 18);
+printf("F : %d\n", F);
+gotoxy(65, 19);
+printf("C : %d\n", C);
+gotoxy(65, 20);
+printf("P : %d\n", P);
+gotoxy(65, 21);
+printf("A : %d\n", A);
+}
+
+char lettreAleatoire(){
+char lettre;
+char liste_lettres[5] = {'B', 'P', 'C', 'F', 'A'};
+int nombre = rand()%5;
+return lettre = liste_lettres[nombre];
+}
+
+void afficherNiveau(int niveau){
+gotoxy(65, 5);
+text_color(VERT);
+printf("Niveau : %d\t", niveau);
+}
+
+void afficherVie(int vie){
+gotoxy(65, 7);
+text_color(VERT);
+printf("Vie(s) : %d\n", vie);
+}
+
+int DeplacerJoueur(char touche, int *x,int *y){
+    if (touche == 'z' && *y > 1){
+    (*y)--;
+    }
+    if (touche == 'q' && *x > 1){
+    (*x)--;
+    }
+    if (touche == 's' && *y < HAUTEUR){
+    (*y)++;
+    }
+    if (touche == 'd' && *x < LARGEUR){
+    (*x)++;
+    }
+    if (touche == 'n'){return 1;};
+    return 0;
+}
+
+void afficherCadreBonbon(){
+int i = 0, j = 2;
+char lettre_recup;
+do{
+gotoxy(2,j);
+for (i=0; i<LARGEUR; i++){
+lettre_recup = lettreAleatoire();
+stockageTableau(i, j, lettre_recup);
+switch (lettre_recup)
+{
+case 'B':text_color(BRIHT_YELLOW);break;
+case 'P':text_color(BRIGHT_RED);break;
+case 'C':text_color(ORANGE);break;
+case 'F': text_color(ROSE);break;
+case 'A':text_color(APRICOT);break;
+default:
+break;
+}
+printf("%c", lettre_recup);
+}
+j++;
+printf("\n");
+}while(j <= HAUTEUR+1);
+}
+
+void afficherObjet(char c, int x, int y, const char* couleur) {
+gotoxy(x, y);
+printf("%s%c%s", couleur, c, RESET);
+fflush(stdout);
+}
+
+int menu(int *reponse){
+gotoxy(0, 0);
+affichage_LOGO();
+text_color(ROUGE);
+gotoxy(0, 20);
+printf("[1] : Règles du jeu");
+gotoxy(0, 21);
+printf("[2] : Nouvelle partie");
+gotoxy(0, 22);
+printf("[3] : Reprendre/Créer partie");
+gotoxy(0, 23);
+printf("[4] : Afficher tous les joueurs");
+gotoxy(0, 24);
+printf("[5] : QUITTER");
+gotoxy(0, 25);
+printf("Que voulez-vous faire : ");
+gotoxy(0, 26);
+text_color(RESET);
+scanf("%d", reponse);
+return 0;
+}
+
+/* Remplacez ou insérez la fonction `jeu` ci‑dessous. Elle gère :
+   - déplacement du joueur (z/q/s/d)
+   - sélection/désélection d'un fruit avec 'g'
+   - échange du fruit sélectionné avec un fruit voisin via z/q/s/d
+*/
+void jeu(Avancement *av){
+    int compteurX = 0, compteurY = 65;
+    char touche = '\0';
+    int xJoueur = LARGEUR / 2;
+    int yJoueur = HAUTEUR / 2;
+    char lettre = grille[yJoueur][xJoueur];
+
+    clrscr();
+    afficherCadre();
+    afficherCadreBonbon();
+    afficherNiveau(av->niveau);
+    afficherVie(av->vie);
+    contrat();
+    coups(av->nb_coups);
+    fonctionBonusMalus();
+
+    clock_t temps_debut;
+    double temps_ecoule;
+    long temps_restant;
+    temps_ecoule = 0;
+    temps_debut = clock();
+    affichageItems(av->A, av->B, av->C, av->P, av->F);
+    afficherObjet('X', xJoueur, yJoueur, VIOLET);
+
+    /* Gestion de sélection : appuyer sur 'g' pour sélectionner/désélectionner le fruit
+       sous le joueur. Ensuite une touche directionnelle échange la sélection avec
+       le fruit adjacent. */
+    int sel_active = 0;    /* 0 = aucune sélection, 1 = sélection active */
+    int sel_x = -1, sel_y = -1;
+    char sel_char = 0;
+
+    do{
+        temps_ecoule = (double)(clock() - temps_debut) / CLOCKS_PER_SEC;
+        temps_restant = (long)(60.0 - temps_ecoule);
+        gotoxy(65, 23);
+        text_color(VERT);
+        printf("Temps : %2ld s ", temps_restant);
+        text_color(RESET);
+        if (temps_restant <= 0){
+            break;
+        }
+        if(kbhit() != 0){
+            touche = getch();
+// --- Sélection avec 'g' ---
+if (touche == 'g') {
+
+    if (!sel_active && is_fruit(grille[yJoueur][xJoueur])) {
+        // Activer sélection
+        sel_active = 1;
+        sel_x = xJoueur;
+        sel_y = yJoueur;
+        sel_char = grille[sel_y][sel_x];
+
+        afficherObjet(sel_char, sel_x, sel_y, VIOLET);
+    }
+    else if (sel_active) {
+        // Annuler sélection
+        afficherObjet(
+            grille[sel_y][sel_x],
+            sel_x,
+            sel_y,
+            couleur_fruit(grille[sel_y][sel_x])
+        );
+
+        sel_active = 0;
+        sel_x = sel_y = -1;
+        sel_char = ' ';
+    }
+    continue;
+}
+
+            /* Touches de sélection */
+            if (touche == 'g') {
+                printf("aaa");
+                if (!sel_active && is_fruit(grille[yJoueur][xJoueur])) {
+                    /* activer sélection */
+                    sel_active = 1;
+                    sel_x = xJoueur;
+                    sel_y = yJoueur;
+                    sel_char = grille[sel_y][sel_x];
+                    /* mettre en évidence (couleur violette) */
+                    afficherObjet(sel_char, sel_x, sel_y, BRIGHT_PURPLE);
+                    gotoxy(65, 22); text_color(VIOLET); printf("Sélection: %c (%d,%d)  ", sel_char, sel_x, sel_y); text_color(RESET);
+                } else if (sel_active) {
+                    /* annuler sélection : restaurer l'affichage du caractère */
+                    char c = grille[sel_y][sel_x];
+                    const char* col = RESET;
+                    switch (c) {
+                        case 'B': col = BRIHT_YELLOW; break;
+                        case 'P': col = BRIGHT_RED; break;
+                        case 'C': col = ORANGE; break;
+                        case 'F': col = ROSE; break;
+                        case 'A': col = APRICOT; break;
+                        default: col = RESET; break;
+                    }
+                    afficherObjet(c, sel_x, sel_y, col);
+                    sel_active = 0;
+                    sel_x = sel_y = -1;
+                    sel_char = 0;
+                    gotoxy(65, 22); printf("                         ");
+                }
+                continue;
+            }
+
+            /* Si une sélection est active : z/q/s/d échange la sélection avec la case cible
+               si la cible contient aussi un fruit. Sinon la sélection est annulée.
+            */
+            if (sel_active && (touche == 'z' || touche == 'q' || touche == 's' || touche == 'd')) {
+                int dx = 0, dy = 0;
+                if (touche == 'z') dy = -1;
+                if (touche == 's') dy = 1;
+                if (touche == 'q') dx = -1;
+                if (touche == 'd') dx = 1;
+                int tx = sel_x + dx;
+                int ty = sel_y + dy;
+                /* vérifier limites */
+                if (tx >= 1 && tx <= LARGEUR && ty >= 1 && ty <= HAUTEUR && is_fruit(grille[ty][tx])) {
+                    /* échange des deux fruits */
+                    char tmp = grille[ty][tx];
+                    grille[ty][tx] = grille[sel_y][sel_x];
+                    grille[sel_y][sel_x] = tmp;
+                    /* réafficher les deux positions avec leurs couleurs */
+                    const char* col1 = RESET;
+                    switch (grille[ty][tx]) {
+                        case 'B': col1 = BRIHT_YELLOW; break;
+                        case 'P': col1 = BRIGHT_RED; break;
+                        case 'C': col1 = ORANGE; break;
+                        case 'F': col1 = ROSE; break;
+                        case 'A': col1 = APRICOT; break;
+                    }
+                    const char* col2 = RESET;
+                    switch (grille[sel_y][sel_x]) {
+                        case 'B': col2 = BRIHT_YELLOW; break;
+                        case 'P': col2 = BRIGHT_RED; break;
+                        case 'C': col2 = ORANGE; break;
+                        case 'F': col2 = ROSE; break;
+                        case 'A': col2 = APRICOT; break;
+                        default: col2 = RESET; break;
+                    }
+                    afficherObjet(grille[ty][tx], tx, ty, col1);
+                    afficherObjet(grille[sel_y][sel_x], sel_x, sel_y, col2);
+                }
+                /* fin de la sélection après tentative d'échange */
+                sel_active = 0;
+                sel_x = sel_y = -1;
+                sel_char = 0;
+                gotoxy(65, 22); printf("                         ");
+                continue;
+            }
+
+            /* sinon comportement normal de déplacement (z/q/s/d) */
+            if (touche == 'z' || touche == 'q' || touche == 's' || touche == 'd'){
+                printf("aa");
+                /* Remet la lettre originale à l'ancienne position */
+                switch(lettre) {
+                    case 'B': afficherObjet(lettre, xJoueur, yJoueur, BRIHT_YELLOW); break;
+                    case 'P': afficherObjet(lettre, xJoueur, yJoueur, BRIGHT_RED); break;
+                    case 'C': afficherObjet(lettre, xJoueur, yJoueur, ORANGE); break;
+                    case 'F': afficherObjet(lettre, xJoueur, yJoueur, ROSE); break;
+                    case 'A': afficherObjet(lettre, xJoueur, yJoueur, APRICOT); break;
+                    default: afficherObjet(' ', xJoueur, yJoueur, RESET); break;
+                }
+                DeplacerJoueur(touche, &xJoueur, &yJoueur);
+                /* Récupère nouvelle lettre */
+                lettre = grille[yJoueur][xJoueur];
+                /* Affiche joueur */
+                afficherObjet('X', xJoueur, yJoueur, VIOLET);
+                av->nb_coups++;
+                coups(av->nb_coups);
+            }
+        }
+    }while(touche != 'n');
+    Sauvegarde_Joueur(av);
+}
+
+// Nouvelle partie
+void nouvellePartie() {
+char pseudo[50];
+Avancement avancement;
+clrscr();
+gotoxy(0, 10);
+text_color(VERT);
+printf("=== NOUVELLE PARTIE ===\n");
+printf("Entrez votre pseudo : ");
+text_color(RESET);
+scanf("%49s", pseudo);
+strcpy(avancement.Joueur, pseudo);
+avancement.niveau = 1;
+avancement.vie = 3;
+avancement.nb_coups = 0;
+avancement.A = 4;
+avancement.B = 12;
+avancement.C = 10;
+avancement.P = 4;
+avancement.F = 16;
+text_color(VERT);
+printf("Bonne chance %s !\n", pseudo);
+text_color(RESET);
+usleep(1500000);
+jeu(&avancement);
+}
+
+// Reprendre ou créer une partie
+void reprendreOuCreerPartie() {
+char pseudo[50];
+Avancement avancement;
+clrscr();
+gotoxy(0, 10);
+text_color(VERT);
+printf("=== REPRENDRE UNE PARTIE ===\n");
+printf("Entrez votre pseudo : ");
+text_color(RESET);
+scanf("%49s", pseudo);
+if (Charger_Joueur(&avancement, pseudo)) {
+text_color(VERT);
+printf("\nReprise en cours...\n");
+text_color(RESET);
+usleep(1500000);
+jeu(&avancement);
+} else {
+text_color(ROUGE);
+printf("\nAucune sauvegarde pour %s.\n", pseudo);
+text_color(VERT);
+printf("Création d'une nouvelle partie...\n");
+text_color(RESET);
+strcpy(avancement.Joueur, pseudo);
+avancement.niveau = 1;
+avancement.vie = 3;
+avancement.nb_coups = 0;
+avancement.A = 4;
+avancement.B = 12;
+avancement.C = 10;
+avancement.P = 4;
+avancement.F = 16;
+usleep(1500000);
+jeu(&avancement);
+}
+}
+
+int main(){
+    int reponse = 0;
+    srand(time(NULL));
+    do{
+        clrscr();
+        menu(&reponse);
+        switch (reponse){
+            case 1: 
+                regles();
+                reponse = 0;
+                usleep(2000000);
+                break;
+            case 2: 
+                nouvellePartie();
+                reponse = 0;
+                break;
+            case 3: 
+                reprendreOuCreerPartie();
+                reponse = 0;
+            break;
+            case 4:
+                clrscr();
+                Afficher_Tous_Joueurs();
+                printf("\nAppuyez sur Entrée...");
+                getchar();
+                getchar();
+                reponse = 0;
+                break;
+            case 5: 
+                reponse = 5;
+                break;
+            default:
+                reponse = 0;
+                break;
+        }
+    }while(reponse != 5);
+    clrscr();
+    text_color(VERT);
+    printf("Merci d'avoir joué ! À bientôt !\n");
+    text_color(RESET);
+    return 0;
+}
